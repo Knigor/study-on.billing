@@ -246,4 +246,83 @@ class AuthController extends AbstractController
 
         return $response;
     }
+
+    public function testSuccessfulRegistration(): void
+    {
+        $this->client->request('POST', '/api/v1/register', [], [], [
+            'CONTENT_TYPE' => 'application/json'
+        ], json_encode([
+            'email' => 'newuser@example.com',
+            'password' => 'newpass123',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertArrayHasKey('access_token', $response);
+        $this->assertArrayHasKey('user', $response);
+        $this->assertArrayHasKey('id', $response['user']);
+        $this->assertArrayHasKey('roles', $response['user']);
+    }
+
+    public function testRegisterWithExistingEmail(): void
+    {
+        $this->client->request('POST', '/api/v1/register', [], [], [
+            'CONTENT_TYPE' => 'application/json'
+        ], json_encode([
+            'email' => 'user@example.com', // уже есть в фикстурах
+            'password' => '123456',
+        ]));
+
+        self::assertResponseStatusCodeSame(400);
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertEquals('Email already taken', $response['error']);
+    }
+
+    public function testRegisterWithInvalidData(): void
+    {
+        $this->client->request('POST', '/api/v1/register', [], [], [
+            'CONTENT_TYPE' => 'application/json'
+        ], json_encode([
+            'email' => '',
+            'password' => '',
+        ]));
+
+        self::assertResponseStatusCodeSame(400);
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('errors', $response);
+    }
+
+    public function testGetCurrentUserSuccess(): void
+    {
+        // Сначала логинимся
+        $this->client->request('POST', '/api/v1/auth', [], [], [
+            'CONTENT_TYPE' => 'application/json'
+        ], json_encode([
+            'email' => 'user@example.com',
+            'password' => '123456',
+        ]));
+
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $token = $response['access_token'];
+
+        // Затем запрашиваем /api/v1/users/current
+        $this->client->request('GET', '/api/v1/users/current', [], [], [
+            'HTTP_Authorization' => 'Bearer ' . $token,
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertArrayHasKey('username', $response);
+        $this->assertArrayHasKey('roles', $response);
+        $this->assertArrayHasKey('balance', $response);
+    }
+
+    public function testGetCurrentUserUnauthenticated(): void
+    {
+        $this->client->request('GET', '/api/v1/users/current');
+        self::assertResponseStatusCodeSame(401);
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertEquals('Пользователь не аутентифицирован', $response['error']);
+    }
 }
