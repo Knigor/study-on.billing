@@ -186,7 +186,7 @@ class BillingUserControllerTest extends WebTestCase
     {
         $this->client->request('GET', '/api/v1/users/current');
         self::assertResponseStatusCodeSame(401);
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $response = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertEquals('JWT Token not found', $response['message']);
     }
 }
