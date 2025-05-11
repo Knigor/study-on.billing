@@ -1,8 +1,7 @@
-version: "3.1"
 volumes:
   postgres: ~
 services:
-  nginx:
+  billing-nginx:
     image: nginx:alpine
     working_dir: /app
     volumes:
@@ -33,3 +32,7 @@ services:
       - COMPOSER_ALLOW_SUPERUSER=1
     links:
       - postgres
+networks:
+  default:
+    name: studyon-shared
+    external: true

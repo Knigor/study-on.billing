@@ -123,8 +123,10 @@ class AuthController extends AbstractController
 
         $response = new JsonResponse([
             'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
             'user' => [
                 'id' => $user->getId(),
+                'email' => $user->getEmail(),
                 'roles' => $user->getRoles(),
             ]
         ]);
@@ -237,8 +239,10 @@ class AuthController extends AbstractController
 
         $response = new JsonResponse([
             'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
             'user' => [
                 'id' => $user->getId(),
+                'email' => $user->getEmail(),
                 'roles' => $user->getRoles(),
             ]
         ], JsonResponse::HTTP_CREATED);
@@ -247,82 +251,47 @@ class AuthController extends AbstractController
         return $response;
     }
 
-    public function testSuccessfulRegistration(): void
-    {
-        $this->client->request('POST', '/api/v1/register', [], [], [
-            'CONTENT_TYPE' => 'application/json'
-        ], json_encode([
-            'email' => 'newuser@example.com',
-            'password' => 'newpass123',
-        ]));
 
-        self::assertResponseStatusCodeSame(201);
-        $response = json_decode($this->client->getResponse()->getContent(), true);
+    #[Route('/api/v1/token/refresh', name: 'api_token_refresh', methods: ['POST'])]
+    public function refreshToken(
+        Request $request,
+        EntityManagerInterface $em,
+        JWTTokenManagerInterface $jwtManager
+    ): JsonResponse {
+        $refreshToken = $request->cookies->get('refresh_token');
 
-        $this->assertArrayHasKey('access_token', $response);
-        $this->assertArrayHasKey('user', $response);
-        $this->assertArrayHasKey('id', $response['user']);
-        $this->assertArrayHasKey('roles', $response['user']);
-    }
+        if (!$refreshToken) {
+            return new JsonResponse([
+                'error' => 'Missing refresh token',
+                'message' => 'Refresh token not provided'
+            ], JsonResponse::HTTP_UNAUTHORIZED);
+        }
 
-    public function testRegisterWithExistingEmail(): void
-    {
-        $this->client->request('POST', '/api/v1/register', [], [], [
-            'CONTENT_TYPE' => 'application/json'
-        ], json_encode([
-            'email' => 'user@example.com', // уже есть в фикстурах
-            'password' => '123456',
-        ]));
+        $payload = json_decode(base64_decode($refreshToken), true);
 
-        self::assertResponseStatusCodeSame(400);
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertEquals('Email already taken', $response['error']);
-    }
+        if (!isset($payload['username'], $payload['exp']) || $payload['exp'] < time()) {
+            return new JsonResponse([
+                'error' => 'Invalid refresh token',
+                'message' => 'Token is malformed or expired'
+            ], JsonResponse::HTTP_UNAUTHORIZED);
+        }
 
-    public function testRegisterWithInvalidData(): void
-    {
-        $this->client->request('POST', '/api/v1/register', [], [], [
-            'CONTENT_TYPE' => 'application/json'
-        ], json_encode([
-            'email' => '',
-            'password' => '',
-        ]));
+        /** @var User|null $user */
+        $user = $em->getRepository(User::class)->findOneBy(['email' => $payload['username']]);
 
-        self::assertResponseStatusCodeSame(400);
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertArrayHasKey('errors', $response);
-    }
+        if (!$user) {
+            return new JsonResponse([
+                'error' => 'User not found',
+                'message' => 'No user associated with this token'
+            ], JsonResponse::HTTP_UNAUTHORIZED);
+        }
 
-    public function testGetCurrentUserSuccess(): void
-    {
-        // Сначала логинимся
-        $this->client->request('POST', '/api/v1/auth', [], [], [
-            'CONTENT_TYPE' => 'application/json'
-        ], json_encode([
-            'email' => 'user@example.com',
-            'password' => '123456',
-        ]));
+        $newAccessToken = $jwtManager->create($user);
 
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        $token = $response['access_token'];
-
-        // Затем запрашиваем /api/v1/users/current
-        $this->client->request('GET', '/api/v1/users/current', [], [], [
-            'HTTP_Authorization' => 'Bearer ' . $token,
+        return new JsonResponse([
+            'access_token' => $newAccessToken,
+            'refresh_token' => $refreshToken
         ]);
-
-        self::assertResponseIsSuccessful();
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertArrayHasKey('username', $response);
-        $this->assertArrayHasKey('roles', $response);
-        $this->assertArrayHasKey('balance', $response);
     }
 
-    public function testGetCurrentUserUnauthenticated(): void
-    {
-        $this->client->request('GET', '/api/v1/users/current');
-        self::assertResponseStatusCodeSame(401);
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertEquals('Пользователь не аутентифицирован', $response['error']);
-    }
 }
