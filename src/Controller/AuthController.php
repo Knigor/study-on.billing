@@ -253,6 +253,34 @@ class AuthController extends AbstractController
 
 
     #[Route('/api/v1/token/refresh', name: 'api_token_refresh', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/v1/token/refresh',
+        summary: 'Обновление access_token по refresh_token',
+        description: 'Обновление JWT access_token используя refresh_token',
+        tags: ['Authentication'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Токен успешно обновлен',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'access_token', type: 'string', description: 'Новый access token'),
+                        new OA\Property(property: 'refresh_token', type: 'string', description: 'Refresh token из cookie (без изменений)')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Ошибка аутентификации',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'error', type: 'string', description: 'Код ошибки'),
+                        new OA\Property(property: 'message', type: 'string', description: 'Подробности ошибки')
+                    ]
+                )
+            )
+        ]
+    )]
     public function refreshToken(
         Request $request,
         EntityManagerInterface $em,
@@ -293,5 +321,6 @@ class AuthController extends AbstractController
             'refresh_token' => $refreshToken
         ]);
     }
+
 
 }
