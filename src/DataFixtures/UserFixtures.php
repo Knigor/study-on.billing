@@ -18,7 +18,7 @@ class UserFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         $user = new User();
-        $user->setEmail('admin@example.com');
+        $user->setEmail('knigor1337@gmail.com');
         $user->setRoles(['ROLE_ADMIN']);
 
         // Хешируем пароль
@@ -30,7 +30,7 @@ class UserFixtures extends Fixture
 
         $manager->persist($user);
 
-        // можно создать ещё пользователей
+
         $user2 = new User();
         $user2->setEmail('user@example.com');
         $user2->setRoles(['ROLE_USER']);
