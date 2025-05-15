@@ -2,20 +2,24 @@
 
 namespace App\Dto;
 
+use App\Entity\Transaction;
+use DateTimeInterface;
+
 class TransactionDto
 {
-    public int $id;
-    public string $createdAt;
-    public string $type;
-    public ?string $courseCode;
-    public string $amount;
-
-    public function __construct(int $id, string $createdAt, string $type, ?string $courseCode, string $amount)
+    public static function fromEntity(Transaction $transaction): array
     {
-        $this->id = $id;
-        $this->createdAt = $createdAt;
-        $this->type = $type;
-        $this->courseCode = $courseCode;
-        $this->amount = $amount;
+        $data = [
+            'id' => $transaction->getId(),
+            'created_at' => $transaction->getTransactionDate()->format(DateTimeInterface::ATOM),
+            'type' => $transaction->getOperationType() === 1 ? 'payment' : 'deposit',
+            'amount' => number_format($transaction->getAmount(), 2, '.', ''),
+        ];
+
+        if ($transaction->getCourse()) {
+            $data['course_code'] = $transaction->getCourse()->getCode();
+        }
+
+        return $data;
     }
 }

@@ -2,16 +2,22 @@
 
 namespace App\Dto;
 
+use App\Entity\Course;
+use App\Enum\EnumCourseType;
+
 class CourseDto
 {
-    public string $code;
-    public string $type;
-    public ?string $price;
-
-    public function __construct(string $code, string $type, ?string $price = null)
+    public static function fromEntity(Course $course): array
     {
-        $this->code = $code;
-        $this->type = $type;
-        $this->price = $price;
+        $data = [
+            'code' => $course->getCode(),
+            'type' => EnumCourseType::byCode($course->getType())->value,
+        ];
+
+        if ($course->getPrice() !== null) {
+            $data['price'] = number_format($course->getPrice(), 2, '.', '');
+        }
+
+        return $data;
     }
 }

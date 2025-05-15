@@ -12,29 +12,21 @@ class CourseType
 
     public static function typeToString(int $type): string
     {
-        switch ($type) {
-            case 0:
-                return 'free';
-            case 1:
-                return 'rent';
-            case 2:
-                return 'buy';
-            default:
-                throw new TypeNotFoundException("Тип курса $type не найден");
-        }
+        return match ($type) {
+            0 => 'free',
+            1 => 'rent',
+            2 => 'buy',
+            default => throw new TypeNotFoundException("Тип курса $type не найден"),
+        };
     }
 
     public static function stringToType(string $type): int
     {
-        switch ($type) {
-            case 'free':
-                return 0;
-            case 'rent':
-                return 1;
-            case 'buy':
-                return 2;
-            default:
-                throw new TypeNotFoundException("Тип курса $type не найден");
-        }
+        return match ($type) {
+            'free' => 0,
+            'rent' => 1,
+            'buy' => 2,
+            default => throw new TypeNotFoundException("Тип курса $type не найден"),
+        };
     }
 }
