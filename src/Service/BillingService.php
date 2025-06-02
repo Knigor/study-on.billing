@@ -2,12 +2,14 @@
 
 namespace App\Service;
 
+use App\Service\PaymentService;
 use App\Dto\CourseDto;
 use App\Dto\TransactionDto;
 use App\Entity\Course;
 use App\Entity\Transaction;
 use App\Entity\User;
 use App\Enum\EnumCourseType;
+use App\Exception\NegativeDepositValueException;
 use App\Repository\CourseRepository;
 use App\Repository\TransactionRepository;
 use DateTimeInterface;
@@ -19,8 +21,10 @@ class BillingService
     public function __construct(
         private CourseRepository $courseRepository,
         private TransactionRepository $transactionRepository,
-        private EntityManagerInterface $em
-    ) {}
+        private EntityManagerInterface $em,
+        private PaymentService $paymentService
+    ) {
+    }
 
     public function getAllCourses(): array
     {
@@ -34,7 +38,7 @@ class BillingService
     {
         $course = $this->courseRepository->findOneBy(['code' => $code]);
         if (!$course) {
-           throw new NotFoundHttpException('Course not found');
+            throw new NotFoundHttpException('Course not found');
         }
         return CourseDto::fromEntity($course);
     }
@@ -56,31 +60,14 @@ class BillingService
             ];
         }
 
-        $price = $course->getPrice();
-        if ($user->getBalance() < $price) {
+        try {
+            $transaction = $this->paymentService->pay($user, $course);
+        } catch (\Throwable $e) {
             return [
                 'code' => 406,
-                'message' => 'На вашем счету недостаточно средств',
+                'message' => $e->getMessage(),
             ];
         }
-
-        // списываем деньги
-        $user->setBalance($user->getBalance() - $price);
-
-        $transaction = new Transaction();
-        $transaction->setOwner($user);
-        $transaction->setCourse($course);
-        $transaction->setAmount($price);
-        $transaction->setTransactionDate(new \DateTime());
-        $transaction->setOperationType(1); // 1 — payment
-
-        if ($type === EnumCourseType::RENT) {
-            $expires = (new \DateTime())->modify('+30 days');
-            $transaction->setValidUntil($expires);
-        }
-
-        $this->em->persist($transaction);
-        $this->em->flush();
 
         return [
             'success' => true,
@@ -97,5 +84,27 @@ class BillingService
             fn(Transaction $t) => TransactionDto::fromEntity($t),
             $transactions
         );
+    }
+
+    public function deposit(User $user, float $amount): array
+    {
+        try {
+            $this->paymentService->deposit($user, $amount);
+
+            return [
+                'success' => true,
+                'new_balance' => $user->getBalance(),
+            ];
+        } catch (NegativeDepositValueException $e) {
+            return [
+                'code' => 400,
+                'message' => $e->getMessage(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'code' => 500,
+                'message' => 'Ошибка при пополнении баланса',
+            ];
+        }
     }
 }

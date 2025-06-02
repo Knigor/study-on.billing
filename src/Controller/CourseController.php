@@ -16,7 +16,6 @@ class CourseController extends AbstractController
         path: '/api/v1/courses',
         summary: 'Получение списка всех курсов',
         tags: ['Courses'],
-        security: [['bearerAuth' => []]],
         responses: [
             new OA\Response(
                 response: 200,
@@ -29,11 +28,9 @@ class CourseController extends AbstractController
                         new OA\Property(property: 'price', type: 'number')
                     ]
                 ))
-            ),
-            new OA\Response(response: 401, description: 'Неавторизован')
+            )
         ]
     )]
-    #[Security(name: 'bearerAuth')]
     public function list(BillingService $billingService): JsonResponse
     {
         return $this->json($billingService->getAllCourses());
@@ -57,7 +54,6 @@ class CourseController extends AbstractController
             new OA\Response(response: 404, description: 'Курс не найден')
         ]
     )]
-    #[Security(name: 'bearerAuth')]
     public function get(string $code, BillingService $billingService): JsonResponse
     {
         return $this->json($billingService->getCourseByCode($code));
